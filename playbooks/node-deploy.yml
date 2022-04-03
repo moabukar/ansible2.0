@@ -1,0 +1,23 @@
+---
+- name : install node and npm
+  hosts: localhost
+  tasks:
+    - name: update apt repo and cache
+      apt: 
+        update_cache: yes
+        force_apt_get: yes
+        cache_valid_time: 3600
+    - name: Install nodejs and npm
+      apt:
+        pkg: 
+          - nodejs
+          - npm
+    
+- name: Deploy nodejs app
+  hosts: localhost
+  tasks:
+    - name: Copy nodejs app src to server
+      copy:
+        src: /source/path
+        dest: /source/destination
+
