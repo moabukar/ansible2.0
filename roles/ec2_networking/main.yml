@@ -1,0 +1,36 @@
+---
+  name: networking setup
+  hosts: localhost
+  gather_facts: False 
+  tasks:
+    - name: HTTP
+      amazon.aws.vpc: 
+
+
+    - name: Create Network LB
+      community.aws.elb_network_lb:
+        name: myelb
+        subnets:
+          - "{{ subnet1 }}"
+          - "{{ subnet2 }}"
+        listeners:
+          - Protocol: TCP # Required. The protocol for connections from clients to the load balancer (TCP, TLS, UDP or TCP_UDP) (case-sensitive).
+            Port: 80 # Required. The port on which the load balancer is listening.
+            DefaultActions:
+              - Type: forward # Required. Only 'forward' is accepted at this time
+                TargetGroupName: mytargetgroup # Required. The name of the target group
+        state: present
+      
+    - name: LB result
+      debug:
+        - msg: "{{ elb_network_lb_result }}"
+
+    - name: send notif email
+      mail:
+        host: smtp.gmail.com
+        port: 465
+        username: "{{ gmail }}"
+        password: "{{ g_pass }}"
+        to: Mo <"{{ gmail }}">
+        subject: Ansible-project compelte
+        body: 'Check http://{{ elb_network_lb.external_ip }} to access your web application.'

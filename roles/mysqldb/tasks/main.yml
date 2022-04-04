@@ -1,0 +1,45 @@
+--- 
+  name: Deploy Web application
+  hosts: db_web_servers
+  vars:
+    - db_name: employeee_db
+    - db_user: db_user
+    - db_password: Passw0rd
+  tasks:
+    - name: Install MySQL DB
+      apt: name='{{ item }}' state=present
+      with_items:
+        - mysql-server
+        - mysql-client
+    
+    - name: Update MySQL Configuration file to accept connections from all interfaces
+      ini_file:
+        path: /etc/mysql/my.cnf
+        section: mysqld
+        option: bind-address
+        value: 0.0.0.0
+
+    - name: Start MYSQL service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Create app database
+      mysql_db:
+        name: {{ db_name }}
+        state: present
+
+    - name: Create application DB User
+      mysql_user: 
+        - name: {{ db_user }}
+        - password: {{ db_password }}
+        - priv: '*.*:ALL'
+        - host: '%'
+        - state: present
+
+    - name: Re-start MySQL Service
+      service:
+        name: mysql
+        state: restarted
+        enabled: yes
