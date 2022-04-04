@@ -1,2 +1,33 @@
 ---
 # tasks file for create_user
+    - name: Create a Linux user (hardcoded)
+      hosts: EC2Servers
+      become: yes
+      gather_facts: false
+      vars:
+        - user: User1
+        - password: P455W0RD
+
+    - name: Create a login user (through vars)
+      user:
+        name: "{{ user }}"
+        password: "{{ password }}"
+        groups:
+          - wheel
+        state: present    
+
+    - name: Installs nginx webserver
+      apt: pkg= nginx state=installed update_cache=true
+      notify:
+        - start nginx
+
+    - name: Task 2
+    
+    - name: index.html copy
+      template: src=index.html.j2 dest=/usr/share/nginx/html/index.html
+
+    - name: Task 4
+
+
+
+    - name: Task 5

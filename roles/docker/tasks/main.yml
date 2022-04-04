@@ -1,2 +1,41 @@
 ---
 # tasks file for docker
+  tasks:
+
+  - name: Task 1
+    yum_repository:
+      name: "Docker"
+      description: "Docker Repo"
+      baseurl: "https://download.docker.com/linux/centos/7/x86_64/stable"
+      gpgcheck: "no"
+
+  - name: "installing docker package"
+    command: "yum install docker-ce --nobest -y"
+
+  - name: "Starting docker service"
+    service:
+      name: "docker"
+      state: started
+      enabled: yes
+  - command: "pip3 install docker"
+
+  - name: "Creating folder and copying html file"
+    file:
+      path: "/myfile"
+      state: directory
+
+  - name: Creating container using HTTPD Image
+    docker_container:
+      name: "MyWebServer3"
+      image: "httpd"
+      state: started
+      exposed_ports:
+      - "80"
+      ports:
+      - "8888:80"
+      volumes:
+      - /myfile:/usr/local/apache2/htdocs/
+
+
+
+  - name: Task 2
