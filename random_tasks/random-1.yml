@@ -1,0 +1,29 @@
+---
+## Write a playbook to install ‘zlib’ and ‘vim’ on all hosts if the file ‘/tmp/mario’ exists on the system.
+- hosts: all
+  vars:
+      mario_file: /tmp/mario
+      package_list:
+          - 'zlib' 
+          - 'vim'
+  tasks:
+      - name: Check for mario file
+        stat:
+            path: "{{ mario_file }}"
+        register: mario_f
+
+      - name: Install zlib and vim if mario file exists
+        become: "yes"
+        package:
+            name: "{{ item }}"
+            state: present
+        with_items: "{{ package_list }}"
+        when: mario_f.stat.exists
+
+---
+## Write a single task that verifies all the files in files_list variable exist on the host
+- name: Ensure all files exist
+  assert:
+    that:
+      - item.stat.exists
+  loop: "{{ files_list }}"
