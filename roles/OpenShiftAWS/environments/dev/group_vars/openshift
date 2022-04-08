@@ -1,0 +1,13 @@
+ansible_connection: ssh
+ansible_become_user: root
+ansible_become: yes
+ansible_become_method: sudo
+
+dependent_sw:
+  - docker
+  - wget
+
+allowed_ports:
+  - 80/tcp
+  - 443/tcp
+  - 8443/tcp

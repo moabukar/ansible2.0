@@ -1,0 +1,21 @@
+- name: openshift facts
+  ec2_instance_facts:
+    filters:
+      "tag:Name": "{{ tagName }}"
+    region: "{{ region }}"
+  register: ec2instance
+
+- debug:
+    msg: "Destroying: {{ ec2instance.instances[0].instance_id }}"
+
+- name: Remove openshift server
+  ec2:
+    state: absent
+    instance_ids: "{{ ec2instance.instances[0].instance_id }}"
+    region: "{{ region }}"
+
+- name: remove openshift server from inventory
+  lineinfile:
+    dest: "{{ playbook_dir }}/environments/{{ ec2env }}/hosts"
+    state: absent
+    regexp: "{{ groups['openshift'][0] }}"

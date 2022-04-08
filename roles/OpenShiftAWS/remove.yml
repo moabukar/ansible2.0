@@ -1,0 +1,6 @@
+-
+- hosts: remove
+  connection: local
+  gather_facts: false
+  roles:
+    - destroy

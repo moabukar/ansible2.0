@@ -1,0 +1,13 @@
+-
+- hosts: ec2
+  connection: local
+  gather_facts: false
+  roles:
+    - ec2
+
+- hosts: openshift
+  become: True
+  gather_facts: True
+  roles:
+    - role: openshift
+      become: yes

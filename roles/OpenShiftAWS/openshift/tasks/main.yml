@@ -1,0 +1,73 @@
+- name: Install dependency software
+  yum:
+    state: present
+    name:  "{{ item }}"
+  with_items: "{{ dependent_sw }}"
+
+- name: Get hosts public IP
+  uri:
+    url: http://169.254.169.254/latest/meta-data/public-ipv4
+    return_content: yes
+  register: public_ip_addr
+
+- name: Setting IP addresses
+  set_fact:
+    private_ip: "{{ private_ip_addr.content }}"
+    public_ip:  "{{ public_ip_addr.content }}"
+
+- debug:
+    msg:
+      - "Public IP: {{ public_ip }}"
+      - "Private IP {{ private_ip }}"
+
+- name: Set the docker insecure registry
+  lineinfile:
+    path: /etc/sysconfig/docker
+    regexp: '^INSECURE_REGISTRY'
+    line: INSECURE_REGISTRY='--insecure-registry "{{ private_ip.split('.')[0] }}.{{private_ip.split('.')[1]}}".0.0/16'
+
+- name: Restart docker
+  systemd:
+    name: docker
+    state: restarted
+    enabled: yes
+
+- name: Install openshift
+  unarchive:
+    remote_src: yes
+    src: https://github.com/openshift/origin/releases/download/v3.7.0/openshift-origin-client-tools-v3.7.0-7ed6862-linux-64bit.tar.gz
+    dest: /tmp
+    owner: root
+    group: root
+
+- name: Move oc command to /usr/bin
+  shell: mv /tmp/openshift-origin-client-tools-v3.7.0-7ed6862-linux-64bit/oc /usr/bin/oc
+  owner: root
+  group: root
+  mode: 0755
+
+- name: Set firewall
+  copy:
+    src: "{{ playbook_dir }}/files/iptables"
+    dest: /etc/sysconfig/iptables
+    owner: root
+    group: root
+    mode: '0600'
+    force: yes
+  notify:
+    - restart iptables
+
+- name: Install openshift control script
+  copy:
+    src: "{{ playbook_dir }}/files/initd_openshift"
+    dest: /etc/init.d/openshift
+    owner: root
+    group: root
+    mode: '0755'
+    force: 'yes'
+
+- name: Enable and start openshift
+  service:
+    name: openshift
+    state: started
+    enabled: yes

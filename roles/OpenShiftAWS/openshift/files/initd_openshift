@@ -1,0 +1,45 @@
+#!/bin/bash
+# OpenShift control script
+# chkconfig: 35 99 99
+# description: Openshift service control
+
+function start {
+  # Check if oc cluster has already been launched
+  PublicIP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+  PrivateIP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+  LastIP=$(cat /openshift/config/master/master-config.yaml  | grep masterPublicURL | awk -F: '{print $3}' | sort | uniq | sed 's,/,,g' | tr -d '\n')
+  export PublicIP PrivateIP LastIP
+
+  # Check if IP is same as last launch, if not remove the config
+  if [[ ${PublicIP} != ${LastIP} ]]
+  then
+    rm -rf /openshift/config
+  fi
+
+  if [[ -d /openshift/config ]]
+  then
+    # Launch with all options
+    mkdir -p /openshift/data /openshift/vmvolumes /openshift/pvdir /openshift/config
+    oc cluster up --public-hostname="$PublicIP" --routing-suffix="${PublicIP}.nip.io" --host-data-dir=/openshift/data --host-volumes-dir=/openshift/vmvolumes --host-pv-dir=/openshift/pvdir --host-config-dir=/openshift/config --use-existing-config
+  else
+    oc cluster up --public-hostname="$PublicIP" --routing-suffix="${PublicIP}.nip.io" --host-data-dir=/openshift/data --host-volumes-dir=/openshift/vmvolumes --host-pv-dir=/openshift/pvdir --host-config-dir=/openshift/config
+  fi
+}
+
+case $1 in
+  'start')
+    start
+    ;;
+
+  'stop')
+    oc cluster down
+    ;;
+
+  'status')
+    docker ps
+    ;;
+  'restart')
+    oc cluster down
+    sleep 30
+    start
+esac

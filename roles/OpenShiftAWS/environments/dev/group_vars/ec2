@@ -1,0 +1,6 @@
+vpc_id: vpc-7738c91e
+vpc_security_groups: sg-07acaaaecee819880
+imagesize: t2.medium
+ec2SG: al-office
+ec2subnet: subnet-b6bfa5ce
+ami_id: ami-00846a67

@@ -1,0 +1,11 @@
+env: AL Academy
+ec2env: dev
+region: eu-west-2
+sshkey: steveshilling
+tagName: OpenShift
+ansible_ssh_user: centos
+ansible_ssh_common_args: -o StrictHostKeyChecking=no
+ansible_ssh_private_key_file: "{{ lookup('env','HOME') }}/.aws/automationlogic/steveshilling-london.pem"
+domain_name: grads.al-labs.co.uk
+dns_zone_id: Z2U00Q95U7EKEA
+domain_prefix: \\052.oc

@@ -1,0 +1,71 @@
+- name: Display attributes
+  debug:
+    msg:
+      - "SSH Key: {{ ansible_ssh_private_key_file }}"
+      - "User: {{ ansible_ssh_user }}"
+      - "SSH Args: {{ ansible_ssh_common_args }}"
+
+- name: Get public IP for the instance
+  ec2_eip:
+    state: present
+    region: "{{ region }}"
+  when: groups['openshift'] | length == 0
+  register: eip
+
+- name: Create ec2 instance
+  ec2:
+    key_name: "{{ sshkey }}"
+    group: "{{ ec2SG }}"
+    instance_type: "{{ imagesize }}"
+    image: "{{ ami_id }}"
+    wait: true
+    region: "{{ region }}"
+    vpc_subnet_id: "{{ ec2subnet }}"
+    assign_public_ip: yes
+    instance_tags:
+      Name: "{{ tagName }}"
+      Environment: "{{ env }}"
+  when: groups['openshift'] | length == 0
+  register: ec2instance
+
+- name: Wait for SSH to come up
+  delegate_to: "{{ item.public_dns_name }}"
+  wait_for_connection:
+    delay: 30
+    timeout: 320
+  when: groups['openshift'] | length == 0
+  with_items: "{{ ec2instance.instances }}"
+
+- name: Associate EIP
+  ec2_eip:
+    device_id: "{{ item }}"
+    ip: "{{ eip.public_ip }}"
+    region: "{{ region }}"
+  with_items: "{{ ec2instance.instance_ids }}"
+  when: groups['openshift'] | length == 0
+
+- name: Get updated ec2 details
+  ec2_instance_facts:
+    instance_ids: "{{ ec2instance.instance_ids }}"
+  when: groups['openshift'] | length == 0
+  register: new_ec2
+
+- name: Add to inventory
+  lineinfile:
+    dest: "{{ playbook_dir }}/environments/{{ ec2env }}/hosts"
+    insertafter: '^\[openshift\]'
+    line: "{{ item.public_dns_name }}"
+  when: groups['openshift'] | length == 0
+  with_items: "{{ new_ec2.instances }}"
+
+- name: Refresh inventory
+  meta: refresh_inventory
+
+# - name: Set Route 53 DNS name
+#   route53:
+#     state: present
+#     zone: "{{ domain_nae }}"
+#     record: "{{domain_prefix}}.{{ domain_name }}"
+#     type: A
+#     ttl: 120
+#     value: "{{ eip.public_ip }}"
