@@ -1,0 +1,60 @@
+- name: Create VPC
+  ec2_vpc:
+    state: present
+    cidr_block: "{{ aws_vpc_cidr }}"
+    resource_tags: {"Name": "SteveVPC"}
+    subnets:
+      - cidr: "{{ aws_vpc_subneta_cidr }}"
+        az: "{{ aws_region }}a"
+        resource_tags: {"Name": "SteveVpcPublic"}
+      - cidr: "{{ aws_vpc_subnetb_cidr }}"
+        az: "{{ aws_region }}b"
+        resource_tags: {"Name": "SteveVpcPrivate"}
+    internet_gateway: True
+    route_tables:
+      - subnets:
+          - "{{ aws_vpc_subneta_cidr }}"
+          - "{{ aws_vpc_subnetb_cidr }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gw: igw
+    region: "{{ aws_region }}"
+  register: vpc
+
+- name: Jenkins Security Group
+  ec2_group:
+    name: SteveJenkinsSG
+    description: Security Group for Jenkins server
+    vpc_id: "{{ vpc.vpc.id }}"
+    region: "{{ aws_region }}"
+    rules:
+      - proto: tcp
+        from_port: 8080
+        to_port: 8080
+        cidr_ip: 77.108.144.180/32
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+      - proto: all
+        from_port: 1-65535
+        to_port: 1-65535
+        cidr_ip: "{{ aws_vpc_cidr }}"
+    rules_egress:
+      - proto: all
+        from_port: 1-65535
+        to_port: 1-65535
+        cidr_ip: "{{ aws_vpc_cidr }}"
+    tags:
+      Name: SteveVpcSG
+  register: secgroup
+
+- name: Saving state
+  lineinfile:
+    path: ./state.dat
+    insertafter: EOF
+    line: "{{ item }}"
+    create: yes
+    state: present
+  with_items:
+    - "VPC ID: {{ vpc.vpc.id }}"
+    - "SecGroup: {{ secgroup.group_id }}"

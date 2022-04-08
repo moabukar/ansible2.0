@@ -1,0 +1,204 @@
+- name: Remove state file
+  file:
+    path: ./state.dat
+    state: absent
+
+- name: Create VPC
+  ec2_vpc_net:
+    name: SteveVPC
+    cidr_block: "{{ aws_vpc_cidr }}"
+    state: present
+    region: "{{ aws_region }}"
+  register: myvpc
+
+- name: Create public subnet zone A
+  ec2_vpc_subnet:
+    state: present
+    vpc_id: "{{ myvpc.vpc.id }}"
+    cidr: "{{ aws_vpc_public_cidra }}"
+    az: "{{ aws_region }}a"
+    region: "{{ aws_region }}"
+    resource_tags:
+      Name: "SteveVPC Public Subnet A"
+  register: my_pubsuba
+
+- name: Create public subnet zone B
+  ec2_vpc_subnet:
+    state: present
+    vpc_id: "{{ myvpc.vpc.id }}"
+    cidr: "{{ aws_vpc_public_cidrb }}"
+    az: "{{ aws_region }}b"
+    region: "{{ aws_region }}"
+    resource_tags:
+      Name: "SteveVPC Public Subnet B"
+  register: my_pubsubb
+
+- name: Create private subnet zone A
+  ec2_vpc_subnet:
+    state: present
+    vpc_id: "{{ myvpc.vpc.id }}"
+    cidr: "{{ aws_vpc_private_cidra }}"
+    az: "{{ aws_region }}a"
+    region: "{{ aws_region }}"
+    resource_tags:
+      Name: "SteveVPC Private Subnet A"
+  register: my_privsuba
+
+- name: Create private subnet zone B
+  ec2_vpc_subnet:
+    state: present
+    vpc_id: "{{ myvpc.vpc.id }}"
+    cidr: "{{ aws_vpc_private_cidrb }}"
+    az: "{{ aws_region }}b"
+    region: "{{ aws_region }}"
+    resource_tags:
+      Name: "SteveVPC Private Subnet B"
+  register: my_privsubb
+
+- name: Create Internet Gateway
+  ec2_vpc_igw:
+    vpc_id: "{{ myvpc.vpc.id }}"
+    region: "{{ aws_region }}"
+    state: present
+  register: my_igw
+
+- name: EIP for NAT A
+  shell: >
+      aws ec2 allocate-address --domain vpc --region "{{ aws_region }}" --query AllocationId | tr -d '"'
+  register: eipA
+
+- name: EIP for NAT B
+  shell: >
+      aws ec2 allocate-address --domain vpc --region "{{ aws_region }}" --query AllocationId | tr -d '"'
+  register: eipB
+
+- name: Private network NAT gateway A
+  shell: >
+    aws ec2 create-nat-gateway \
+    --subnet-id {{ my_pubsuba.subnet.id }} \
+    --allocation-id {{ eipA.stdout }} \
+    --region "{{ aws_region }}" \
+    --query NatGateway.NatGatewayId | tr -d '"'
+  register: natA
+
+- name: Private network NAT gateway B
+  shell: >
+    aws ec2 create-nat-gateway \
+    --subnet-id {{ my_pubsubb.subnet.id }} \
+    --allocation-id {{ eipB.stdout }} \
+    --region "{{ aws_region }}" \
+    --query NatGateway.NatGatewayId | tr -d '"'
+  register: natB
+
+- pause:
+    seconds: 120
+
+- name: Public subnet routing table
+  ec2_vpc_route_table:
+    vpc_id: "{{ myvpc.vpc.id }}"
+    region: "{{ aws_region }}"
+    tags:
+      Name: "SteveVPC public rtb"
+    subnets:
+      - "{{ my_pubsuba.subnet.id }}"
+      - "{{ my_pubsubb.subnet.id }}"
+    routes:
+      - dest: "0.0.0.0/0"
+        gateway_id: "{{ my_igw.gateway_id }}"
+
+- name: Private subnet routing table A
+  ec2_vpc_route_table:
+    vpc_id: "{{ myvpc.vpc.id }}"
+    region: "{{ aws_region }}"
+    tags:
+      Name: "SteveVPC private rtb A"
+    subnets:
+      - "{{ my_privsuba.subnet.id }}"
+    routes:
+      - dest: "0.0.0.0/0"
+        gateway_id: "{{ natA.stdout }}"
+
+- name: Private subnet routing table B
+  ec2_vpc_route_table:
+    vpc_id: "{{ myvpc.vpc.id }}"
+    region: "{{ aws_region }}"
+    tags:
+      Name: "SteveVPC private rtb B"
+    subnets:
+      - "{{ my_privsubb.subnet.id }}"
+    routes:
+      - dest: "0.0.0.0/0"
+        gateway_id: "{{ natB.stdout }}"
+
+- name: Jenkins Security Group
+  ec2_group:
+    name: SteveJenkinsSG
+    description: Security Group for Jenkins server
+    vpc_id: "{{ myvpc.vpc.id }}"
+    region: "{{ aws_region }}"
+    rules:
+      - proto: tcp
+        from_port: 8080
+        to_port: 8080
+        cidr_ip: 77.108.144.180/32
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: 77.108.144.180/32
+      - proto: all
+        from_port: 1-65535
+        to_port: 1-65535
+        cidr_ip: "{{ aws_vpc_cidr }}"
+    rules_egress:
+      - proto: all
+        from_port: 1-65535
+        to_port: 1-65535
+        cidr_ip: 0.0.0.0/0
+    tags:
+      Name: SteveVpcSG
+  register: secgroup
+
+- name: Webserver Security Group
+  ec2_group:
+    name: SteveWebSG
+    description: Security Group for Webservers server
+    vpc_id: "{{ myvpc.vpc.id }}"
+    region: "{{ aws_region }}"
+    rules:
+      - proto: tcp
+        from_port: 80
+        to_port: 80
+        cidr_ip: 0.0.0.0/0
+      - proto: all
+        from_port: 1-65535
+        to_port: 1-65535
+        cidr_ip: "{{ aws_vpc_cidr }}"
+    rules_egress:
+      - proto: all
+        from_port: 1-65535
+        to_port: 1-65535
+        cidr_ip: 0.0.0.0/0
+    tags:
+      Name: SteveVpcWebSG
+  register: websecgroup
+
+- name: Saving state
+  lineinfile:
+    path: ./state.dat
+    insertafter: EOF
+    line: "{{ item }}"
+    create: yes
+    state: present
+  with_items:
+    - "VpcID: {{ myvpc.vpc.id }}"
+    - "PubSubA: {{ my_pubsuba.subnet.id }}"
+    - "PubSubB: {{ my_pubsubb.subnet.id }}"
+    - "PrivSubA: {{ my_privsuba.subnet.id }}"
+    - "PrivSubB: {{ my_privsubb.subnet.id }}"
+    - "IGW: {{ my_igw.gateway_id }}"
+    - "SecGroup: {{ secgroup.group_id }}"
+    - "WebSecGroup: {{ websecgroup.group_id }}"
+    - "EIPA: {{ eipA.stdout }}"
+    - "EIPB: {{ eipB.stdout }}"
+    - "NatGatewayA: {{ natA.stdout }}"
+    - "NatGatewayB: {{ natB.stdout }}"
