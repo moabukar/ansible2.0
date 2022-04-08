@@ -1,0 +1,41 @@
+- name: update all packages
+  apt:
+    name: "*"
+    state: latest
+
+- name: install unzip
+  apt:
+    name: unzip
+    state: present
+
+- name: "create server user group"
+  group:
+    name: "{{ server_group }}"
+    state: present
+
+- name: "create server user"
+  user:
+    name: "{{ server_user }}"
+    groups: "{{ server_group }},sudo"
+    system: no
+    comment: "Server Administrator"
+    createhome: "yes"
+    state: present
+
+- name: download and extract vault
+  ansible.builtin.unarchive:
+    src: https://releases.hashicorp.com/vault/{{ vault_version }}/vault_{{ vault_version }}_linux_amd64.zip
+    dest: /usr/local/bin
+    remote_src: yes
+
+- name: download and extract consul
+  ansible.builtin.unarchive:
+    src: https://releases.hashicorp.com/consul/{{ consul_version }}/consul_{{ consul_version }}_linux_amd64.zip
+    dest: /usr/local/bin
+    remote_src: yes
+
+- name: download and extract consul-template
+  ansible.builtin.unarchive:
+    src: https://releases.hashicorp.com/consul-template/{{ consul_template_version }}/consul-template_{{ consul_template_version }}_linux_amd64.zip
+    dest: /usr/local/bin
+    remote_src: yes

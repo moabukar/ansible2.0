@@ -1,0 +1,12 @@
+[Unit]
+Description=nc-file
+After=Network.target
+
+[Service]
+Type=simple
+ExecStart={{ netcat_file_path }}/nc-file.sh
+User={{ netcat_user }}
+Group={{ netcat_group }}
+
+[Install]
+WantedBy=default.target

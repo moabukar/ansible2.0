@@ -1,0 +1,60 @@
+- name: "create netcat user group"
+  group:
+    name: "{{ netcat_group }}"
+    state: present
+
+- name: "create netcat user"
+  user:
+    name: "{{ netcat_user }}"
+    groups: "{{ netcat_group }}"
+    system: no
+    state: present
+
+- name: create netcat folder
+  file:
+    path: "{{ netcat_file_path }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ netcat_user }}"
+    group: "{{ netcat_group }}"
+
+- name: copy systemd unit files
+  template:
+    src: '{{ item.src }}'
+    dest: '{{ item.dest }}'
+  loop:
+      - { src: nc-file.service.j2, dest: /etc/systemd/system/nc-file.service }
+      - { src: nc-msg.service.j2, dest: /etc/systemd/system/nc-msg.service }
+  
+- name: copy scripts
+  template:
+    src: '{{ item.src }}'
+    dest: '{{ item.dest }}'
+    mode: "a+x"
+  loop:
+      - { src: nc-file.sh.j2, dest: "{{ netcat_file_path }}/nc-file.sh" }
+      - { src: nc-msg.sh.j2, dest: "{{ netcat_file_path }}/nc-msg.sh" }
+
+- name: copy assets
+  copy:
+    src: '{{ item.src }}'
+    dest: '{{ item.dest }}'
+  loop:
+    - { src: message.txt, dest: "{{ netcat_file_path }}/message.txt" }
+    - { src: ramcat.jpeg, dest: "{{ netcat_file_path }}/ramcat.jpeg" }
+    
+- name: systemd to reload daemons
+  systemd:
+    daemon_reload: yes
+
+- name: start services
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - nc-file
+    - nc-msg
+
+
+  
