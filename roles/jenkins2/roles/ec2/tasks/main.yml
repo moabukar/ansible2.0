@@ -1,0 +1,41 @@
+- name: Display attributes
+  debug:
+    msg:
+      - "SSH Key: {{ ansible_ssh_private_key_file }}"
+      - "User: {{ ansible_ssh_user }}"
+      - "SSH Args: {{ ansible_ssh_common_args }}"
+
+- name: Create ec2 instance
+  ec2:
+    key_name: "{{ sshkey }}"
+    group: "{{ ec2SG[region] }}"
+    instance_type: t2.micro
+    image: "{{ ami[region] }}"
+    wait: true
+    region: "{{ region }}"
+    vpc_subnet_id: "{{ ec2subnet[region] }}"
+    assign_public_ip: yes
+    instance_tags:
+      Name: "{{ tagName }}"
+      Environment: "{{ env }}"
+  when: groups['jenkins'] | length == 0
+  register: ec2instance
+
+- name: Wait for SSH to come up
+  delegate_to: "{{ item.public_dns_name }}"
+  wait_for_connection:
+    delay: 30
+    timeout: 320
+  when: groups['jenkins'] | length == 0
+  with_items: "{{ ec2instance.instances }}"
+
+- name: Add to inventory
+  lineinfile:
+    dest: "{{ playbook_dir }}/environments/{{ ec2env }}/hosts"
+    insertafter: '^\[jenkins\]'
+    line: "{{ item.public_dns_name }} instance_id={{ item.id}} private_ip={{ item.private_ip }}"
+  when: groups['jenkins'] | length == 0
+  with_items: "{{ ec2instance.instances }}"
+
+- name: Refresh inventory
+  meta: refresh_inventory

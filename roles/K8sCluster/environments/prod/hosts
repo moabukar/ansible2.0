@@ -1,0 +1,18 @@
+[remove]
+local1 ansible_host=127.0.0.1 ansible_connection=local
+
+[ec2]
+local2 ansible_host=127.0.0.1 ansible_connection=local
+
+[controller]
+3.250.23.74 instance_id=i-06d04e666178cad65 private_ip=172.31.46.69 kubename=controller
+
+[bastion]
+3.250.23.74 instance_id=i-06d04e666178cad65 private_ip=172.31.46.69 kubename=bastion
+
+[kubemaster]
+34.246.223.161 instance_id=i-0261e2429f388cd5f private_ip=172.31.38.4 kubename=master
+
+[kubeworker]
+3.250.108.50 instance_id=i-0404a02c5a8cd5d99 private_ip=172.31.47.121 kubename=worker1
+54.72.185.36 instance_id=i-0f7d8de74561f65a2 private_ip=172.31.37.150 kubename=worker1

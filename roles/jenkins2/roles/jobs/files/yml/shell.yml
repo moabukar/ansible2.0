@@ -1,0 +1,25 @@
+- job:
+    name: stevejob
+    project-type: freestyle
+    defaults: global
+    description: 'Steves Automated job build'
+    disabled: false
+    display-name: 'Get Me'
+    concurrent: true
+    quiet-period: 5
+    block-downstream: false
+    block-upstream: false
+    retry-count: 3
+    build-discarder:
+      daysToKeep: 1
+      numToKeep: 1
+      artifactDaysToKeep: -1
+      artifactNumToKeep: -1
+    scm:
+      - git:
+          configVersion: 2
+          url: https://bitbucket.org/JangleFett/petclinic.git
+          branches:
+            - '*/master'
+    builders:
+      - shell: "/bin/echo 'Hello World'"

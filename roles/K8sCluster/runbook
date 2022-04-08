@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# For use with single sign on
+if [[ -z $AWS_DEFAULT_PROFILE ]]
+then
+	echo "Please set your profile in AWS_DEFAULT_PROFILE variable"
+	exit 1
+fi
+
+# Set your environment to use
+if [[ -z $ANSIBLEENV ]]
+then
+	echo "Please set your variable ANSIBLEENV"
+	exit 2
+fi
+
+# Check ANSIBLEENV is not a path
+if ! echo "$ANSIBLEENV" | grep '/' >/dev/null 2>&1
+then
+	ANSIBLEENV="$PWD/environments/$ANSIBLEENV"
+fi
+
+if [[ -n $DEBUG ]]
+then
+	DEBUG="-vvvv"
+fi
+
+# This line supports the use of Virtual Environments to use the correct python while building ec2
+export PYTHON=$(which python)
+
+sshKeyFile=$1
+playbook=$2
+
+# Check if the key file supplied exists
+if [[ ! -e $sshKeyFile ]] || [[ -z $sshKeyFile ]]
+then
+	echo "SSH Key file $sshKeyFile does not exist, or not supplied" 1>&2
+	echo "SYNTAX: $0 <sshKeyFile> <playbook>"
+	exit 1
+fi
+
+if [[ ! -e $playbook ]] || [[ -z $playbook ]]
+then
+	echo "The playbook $playbook does not exist, or not supplied" 1>&2
+	echo "SYNTAX: $0 <sshKeyFile> <playbook>"
+	exit 1
+fi
+
+access_key=$(grep -A3 $AWS_DEFAULT_PROFILE ~/.aws/credentials | grep aws_access_key_id | awk '{print $3}')
+secret_key=$(grep -A3 $AWS_DEFAULT_PROFILE ~/.aws/credentials | grep aws_secret_access_key | awk '{print $3}')
+session_token=$(grep -A3 $AWS_DEFAULT_PROFILE ~/.aws/credentials | grep aws_session_token | awk '{print $3}')
+
+AWS_ACCESS_KEY=$access_key
+AWS_SECRET_KEY=$secret_key
+AWS_SESSION_TOKEN=$session_token
+
+export AWS_ACCESS_KEY AWS_SECRET_KEY AWS_SESSION_TOKEN
+#echo -e "ACCESS: $AWS_ACCESS_KEY\nSECRET: $AWS_SECRET_KEY\nTOKEN: $AWS_SESSION_TOKEN"
+
+ansible-playbook $DEBUG -i $ANSIBLEENV --extra-vars "ansible_ssh_private_key_file=$sshKeyFile" $playbook

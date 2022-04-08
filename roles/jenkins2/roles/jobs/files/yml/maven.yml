@@ -1,0 +1,36 @@
+- job:
+    name: PetClinic
+    project-type: maven
+    defaults: global
+    description: 'Automated build of PetClinic'
+    disabled: false
+    display-name: 'PetClinic'
+    concurrent: true
+    quiet-period: 5
+    block-downstream: false
+    block-upstream: false
+    retry-count: 3
+    build-discarder:
+      daysToKeep: 1
+      numToKeep: 1
+      artifactDaysToKeep: -1
+      artifactNumToKeep: -1
+    maven:
+      root-pom: pom.xml
+      goals: package
+      maven-opts: "-Dmaven.test.skip=true"
+      maven-name: mvn3.6.3
+      automatic-archiving: false
+      incremental-build: false
+      automatic-site-archiving: false
+      automatic-fingerprinting: false
+      settings: jenkins.mvn.DefaultSettingsProvider
+      settings-type: cfp
+      global-settings: jenkins.mvn.DefaultGlobalSettingsProvider
+      global-settings-type: cfp
+    scm:
+      - git:
+          configVersion: 2
+          url: https://bitbucket.org/JangleFett/petclinic.git
+          branches:
+            - '*/master'

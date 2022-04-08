@@ -1,0 +1,65 @@
+- name: Wait for a while before final push to give Jenkins a chance
+  pause:
+    minutes: 3
+
+- name: A restart of Jenkins required to ensure all plugins are ready
+  service:
+    name: jenkins
+    state: restarted
+
+- name: Wait for Jenkins to start up before proceeding.
+  command: >
+    curl -D - --silent --max-time 5 http://{{ jenkins_hostname }}:{{ jenkins_http_port }}{{ jenkins_url_prefix }}/cli/
+  args:
+    warn: false
+  register: result
+  until: >
+    (result.stdout.find("403 Forbidden") != -1)
+    or (result.stdout.find("200 OK") != -1)
+    and (result.stdout.find("Please wait while") == -1)
+  retries: "{{ jenkins_connection_retries }}"
+  delay: "{{ jenkins_connection_delay }}"
+  changed_when: false
+  check_mode: false
+
+- name: Wait for Jenkins to settle
+  pause:
+    minutes: 3
+
+- name: Create jenkins_jobs directory
+  file:
+    path: /etc/jenkins_jobs
+    owner: root
+    group: root
+    mode: '0755'
+    state: directory
+
+- name: Create jobs location for all job yaml configs
+  file:
+    path: /var/lib/jenkins/ymljobs
+    owner: root
+    group: root
+    mode: '0755'
+    state: directory
+
+- name: Install Job builder scripting dir
+  template:
+    src: templates/jenkins_jobs.ini.j2
+    dest: /etc/jenkins_jobs/jenkins_jobs.ini
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Copy job configs to Jenkins
+  copy:
+    src: files/yml/
+    dest: /var/lib/jenkins/ymljobs
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Load Example Jenkins Jobs
+  shell: "jenkins-jobs update {{ item | basename }}"
+  args:
+    chdir: /var/lib/jenkins/ymljobs
+  with_fileglob: files/yml/*.yml

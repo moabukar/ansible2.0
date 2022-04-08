@@ -1,0 +1,52 @@
+# Working on the Controller
+# - name: Install missing software
+#   package:
+#     name: ['git', 'python3', 'python3-pip', 'python3-setuptools', 'python3-tools']
+#     state: present
+#   become: yes
+- name: Install missing software
+  package:
+    name: ['git', 'python-pip']
+    state: present
+  become: yes
+
+- name: Copy Private Key to Controller
+  copy:
+    src: "{{ ansible_ssh_private_key_file }}"
+    dest: "/home/ec2-user/.ssh/id_rsa"
+    owner: ec2-user
+    group: ec2-user
+    mode: '0600'
+
+- name: Copy Private Key to Controller to root
+  copy:
+    src: "{{ ansible_ssh_private_key_file }}"
+    dest: "/root/.ssh/id_rsa"
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Clone the Kubespray to install Python requirements
+  git:
+    repo: https://github.com/kubernetes-sigs/kubespray.git
+    dest: /root/kubespray
+    update: no
+    version: v2.12.0
+
+- name: Add python requirements
+  pip:
+    executable: pip
+    requirements: /root/kubespray/requirements.txt
+
+- name: Install Ansible
+  pip:
+    executable: pip
+    name: ansible
+
+- name: Install kubectl
+  get_url:
+    url: "https://storage.googleapis.com/kubernetes-release/release/{{kubectlver}}/bin/linux/amd64/kubectl"
+    dest: /bin/kubectl
+    mode: 755
+    owner: root
+    group: root

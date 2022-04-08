@@ -1,0 +1,249 @@
+- name: Region
+  debug:
+    msg: "{{ region }}"
+
+- name:
+  set_fact:
+    workerno: 0
+
+# Controller
+- name: Create Controller Node
+  ec2:
+    key_name: "{{ sshkey }}"
+    group: "{{ ec2SG[region] }}"
+    instance_type: "{{ controllertype }}"
+    image: "{{ ami[region] }}"
+    wait: true
+    region: "{{ region }}"
+    vpc_subnet_id: "{{ ec2subnet[region] }}"
+    assign_public_ip: yes
+    instance_tags: "{{ mytags | combine(newname) }}"
+  vars:
+    newname: { 'Name': "{{mytags.Name}}-Controller" }
+  when: groups['controller'] | length == 0
+  register: controller
+
+- name: Allocate EIP to Controller
+  ec2_eip:
+    device_id: "{{ item.id }}"
+    region: "{{ region }}"
+    reuse_existing_ip_allowed: yes
+    release_on_disassociation: yes
+    public_ipv4_pool: yes
+    state: present
+    in_vpc: yes
+  with_items: "{{ controller.instances }}"
+  register: eip_controller
+
+- name: Wait for Controller update
+  pause:
+    minutes: 2
+  when: groups['controller'] | length == 0
+
+- name: Get new controller info since Public IP changed
+  ec2_instance_info:
+    instance_ids:
+      - "{{ item.id }}"
+    region: "{{ region }}"
+  register: controllernew
+  when: groups['controller'] | length == 0
+  with_items: "{{ controller.instances }}"
+
+- name: DEBUG
+  debug:
+    msg: "{{item}}"
+  with_items: "{{ controllernew.results[0].instances }}"
+
+- name: Add Controller to inventory
+  lineinfile:
+    dest: "{{ lookup('env','ANSIBLEENV') }}/hosts"
+    insertafter: '^\[controller\]'
+    line: "{{ item.public_ip_address }} instance_id={{ item.instance_id }} private_ip={{item.private_ip_address}} kubename=controller"
+  when: groups['controller'] | length == 0
+  with_items: "{{ controllernew.results[0].instances }}"
+
+- name: Refresh Controller inventory
+  meta: refresh_inventory
+
+- name: Add Bastion to inventory
+  lineinfile:
+    dest: "{{ lookup('env','ANSIBLEENV') }}/hosts"
+    insertafter: '^\[bastion\]'
+    line: "{{ groups['controller'][0] }} instance_id={{hostvars[item].instance_id}} private_ip={{hostvars[item].private_ip}} kubename=bastion"
+  when: groups['bastion'] | length == 0
+  with_items: "{{ groups['controller'] }}"
+  # with_items: "{{ controller.instances }}"
+
+- name: Refresh Bastion inventory
+  meta: refresh_inventory
+
+# Master
+- name: Create K8s Master
+  ec2:
+    key_name: "{{ sshkey }}"
+    group: "{{ ec2SG[region] }}"
+    instance_type: "{{ kubetype }}"
+    image: "{{ ami[region] }}"
+    wait: true
+    region: "{{ region }}"
+    vpc_subnet_id: "{{ ec2subnet[region] }}"
+    assign_public_ip: yes
+    instance_tags: "{{ mytags | combine(newname) }}"
+  vars:
+    newname:  { 'Name': "{{mytags.Name}}-Master" }
+  when: groups['kubemaster'] | length == 0
+  register: kubemaster
+
+- name: Allocate EIP to K8s Master
+  ec2_eip:
+    device_id: "{{ item.id }}"
+    region: "{{ region }}"
+    reuse_existing_ip_allowed: yes
+    release_on_disassociation: yes
+    public_ipv4_pool: yes
+    state: present
+    in_vpc: yes
+  with_items: "{{ kubemaster.instances }}"
+  register: eip_kubemaster
+
+- name: Wait for Master update
+  pause:
+    minutes: 1
+  when: groups['kubemaster'] | length == 0
+
+- name: Get new kubemaster info since Public IP changed
+  ec2_instance_info:
+    instance_ids:
+      - "{{ item.id }}"
+    region: "{{ region }}"
+  register: kubemasternew
+  when: groups['controller'] | length == 0
+  with_items: "{{ kubemaster.instances }}"
+
+- name: DEBUG
+  debug:
+    msg: "{{ item }}"
+  with_items: "{{ kubemasternew.results[0].instances }}"
+
+- name: Add Master to inventory
+  lineinfile:
+    dest: "{{ lookup('env','ANSIBLEENV') }}/hosts"
+    insertafter: '^\[kubemaster\]'
+    line: "{{ item.public_ip_address }} instance_id={{ item.instance_id }} private_ip={{ item.private_ip }} kubename=master"
+  when: groups['kubemaster'] | length == 0
+  with_items: "{{ kubemasternew.results[0].instances }}"
+
+- name: Refresh Master inventory
+  meta: refresh_inventory
+
+# Workers
+- name: Create K8s Workers
+  ec2:
+    key_name: "{{ sshkey }}"
+    group: "{{ ec2SG[region] }}"
+    instance_type: "{{ kubetype }}"
+    image: "{{ ami[region] }}"
+    wait: true
+    region: "{{ region }}"
+    vpc_subnet_id: "{{ ec2subnet[region] }}"
+    assign_public_ip: yes
+    instance_tags: "{{ mytags | combine(newname) }}"
+  vars:
+    newname: { 'Name': "{{mytags.Name}}-Worker-{{item}}"}
+  with_sequence: count="{{ numworkers }}"
+  when: groups['kubeworker'] | length < numworkers
+  register: kubeworker
+
+- name: Kubeworkers
+  set_fact:
+    kubeworkers: "{{ kubeworker.results }}"
+
+# - name: Kubeworker
+#   debug:
+#     msg: "{{ item.instances[0].id }}"
+#   with_items: "{{ kubeworkers }}"
+
+- name: Add Workers to inventory
+  lineinfile:
+    dest: "{{ lookup('env','ANSIBLEENV') }}/hosts"
+    insertafter: '^\[kubeworker\]'
+    line: "{{ item.instances[0].public_ip }} instance_id={{ item.instances[0].id }} private_ip={{item.instances[0].private_ip}} kubename=worker{{ workerno + 1 }}"
+  when: groups['kubeworker'] | length == 0
+  with_items: "{{ kubeworkers }}"
+
+- name: Refresh Workers inventory
+  meta: refresh_inventory
+
+# Wait for SSH
+- name: Wait for Controller SSH
+  delegate_to: "{{ item.public_dns_name }}"
+  wait_for_connection:
+    delay: 30
+    timeout: 120
+  when: groups['controller'] | length == 0
+  with_items: "{{ controller.instances }}"
+
+- name: Wait for Master SSH
+  delegate_to: "{{ item.public_dns_name }}"
+  wait_for_connection:
+    delay: 30
+    timeout: 120
+  when: groups['kubemaster'] | length == 0
+  with_items: "{{ kubemaster.instances }}"
+
+- name: Wait for Workers SSH
+  delegate_to: "{{ item.instances[0].public_dns_name }}"
+  wait_for_connection:
+    delay: 30
+    timeout: 120
+  when: groups['kubeworker'] | length == 0
+  with_items: "{{ kubeworkers }}"
+
+# Add controller and Kube master
+- name: Add Controller DNS entry
+  route53:
+    state: present
+    zone: "{{ dnszone }}"
+    record: "control.{{dnsname}}"
+    type: A
+    ttl: 60
+    value:
+      - "{{ groups['controller'][0] }}"
+    overwrite: yes
+
+- name: Add Master DNS entry
+  route53:
+    state: present
+    zone: "{{ dnszone }}"
+    record: "master.{{dnsname}}"
+    type: A
+    ttl: 60
+    value:
+      - "{{ groups['kubemaster'][0] }}"
+    overwrite: yes
+
+- name: Set Master Public IP
+  set_fact:
+    masterpubip: "{{ groups['kubemaster'][0] }}"
+
+- name: Set Master Private IP
+  set_fact:
+    masterprivip: "{{hostvars[item].private_ip}}"
+    masterpubip: "{{ groups['kubemaster'][0] }}"
+  with_items: "{{ groups['kubemaster'] }}"
+
+- name: Set Worker IPs
+  set_fact:
+    worker1privip: "{{ hostvars[groups['kubeworker'][0]].private_ip}}"
+    worker1pubip: "{{ groups['kubeworker'][0]}}"
+    worker2privip: "{{ hostvars[groups['kubeworker'][1]].private_ip}}"
+    worker2pubip: "{{ groups['kubeworker'][1]}}"
+
+- name: Set template
+  set_fact:
+    invfile: "{{ 'templates/kubelocal.ini.j2' if bastion == 'no' else 'templates/kubebast.ini.j2' }}"
+
+- name: Create kubecluster inventory file
+  template:
+    src: "{{ invfile }}"
+    dest: "{{ lookup('env','ANSIBLEENV') }}/kube.ini"

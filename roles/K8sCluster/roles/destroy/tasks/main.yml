@@ -1,0 +1,70 @@
+# - name: Debug
+#   debug:
+#     msg:
+#       #- "{{ groups['kubeworker'][item] }}"
+#       - "{{item}}"
+#   #with_sequence: start=0 end={{ numworkers-1 }}
+#   with_items: "{{groups['kubeworker']}}"
+- name: Remove DNS records
+  include: dns.yml
+
+- name: Remove Workers
+  ec2:
+    state: absent
+    instance_ids: "{{hostvars[item].instance_id}}"
+    region: "{{ region }}"
+  with_items: "{{ groups['kubeworker'] }}"
+  when: groups['kubeworker'] | length > 0
+
+- name: Remove Workers from inventory
+  lineinfile:
+    path: "{{ lookup('env','ANSIBLEENV') }}/hosts"
+    regexp: "^{{item}}"
+    state: absent
+  with_items: "{{ groups['kubeworker'] }}"
+  when: groups['kubeworker'] | length > 0
+
+- name: Remove Master
+  ec2:
+    state: absent
+    instance_ids: "{{hostvars[item].instance_id}}"
+    region: "{{ region }}"
+  with_items: "{{ groups['kubemaster'] }}"
+  when: groups['kubemaster'] | length > 0
+
+- name: Remove Master from inventory
+  lineinfile:
+    path: "{{ lookup('env','ANSIBLEENV') }}/hosts"
+    regexp: "^{{ groups['kubemaster'][0] }}"
+    state: absent
+  when: groups['kubemaster'] | length > 0
+
+- name: Remove Master
+  ec2:
+    state: absent
+    instance_ids: "{{hostvars[item].instance_id}}"
+    region: "{{ region }}"
+  with_items: "{{ groups['controller'] }}"
+  when: groups['controller'] | length > 0
+
+- name: Remove Controller from inventory
+  lineinfile:
+    path: "{{ lookup('env','ANSIBLEENV') }}/hosts"
+    regexp: "^{{ groups['controller'][0] }}"
+    state: absent
+  when: groups['controller'] | length > 0
+
+- name: Remove Basion from inventory
+  lineinfile:
+    path: "{{ lookup('env','ANSIBLEENV') }}/hosts"
+    regexp: "^{{ groups['bastion'][0] }}"
+    state: absent
+  when: groups['bastion'] | length > 0
+
+- name: Delete the remote inventory file kube.ini
+  file:
+    path: "{{ lookup('env','ANSIBLEENV') }}/kube.ini"
+    state: absent
+
+- debug:
+    msg: "Check the inventory file environments/{{ec2env}}/hosts to make sure hosts are removed"

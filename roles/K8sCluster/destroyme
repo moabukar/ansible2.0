@@ -1,0 +1,35 @@
+#!/bin/bash
+# For use with single sign on
+if [[ -z $AWS_DEFAULT_PROFILE ]]
+then
+	echo "Please set your profile in AWS_DEFAULT_PROFILE variable"
+	exit 1
+fi
+
+# Set your environment to use
+if [[ -z $ANSIBLEENV ]]
+then
+	echo "Please set your variable ANSIBLEENV"
+	exit 2
+fi
+
+# Check ANSIBLEENV is not a path
+if ! echo "$ANSIBLEENV" | grep '/' >/dev/null 2>&1
+then
+	ANSIBLEENV="$PWD/environments/$ANSIBLEENV"
+fi
+
+# This line supports the use of Virtual Environments to use the correct python while building ec2
+export PYTHON=$(which python)
+
+access_key=$(grep -A3 $AWS_DEFAULT_PROFILE ~/.aws/credentials | grep aws_access_key_id | awk '{print $3}')
+secret_key=$(grep -A3 $AWS_DEFAULT_PROFILE ~/.aws/credentials | grep aws_secret_access_key | awk '{print $3}')
+session_token=$(grep -A3 $AWS_DEFAULT_PROFILE ~/.aws/credentials | grep aws_session_token | awk '{print $3}')
+
+AWS_ACCESS_KEY=$access_key
+AWS_SECRET_KEY=$secret_key
+AWS_SESSION_TOKEN=$session_token
+
+export AWS_ACCESS_KEY AWS_SECRET_KEY AWS_SESSION_TOKEN
+
+ansible-playbook -i $ANSIBLEENV remove.yml

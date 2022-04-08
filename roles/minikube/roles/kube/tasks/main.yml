@@ -1,0 +1,100 @@
+- name: Install Docker
+  package:
+    name: docker
+    state: present
+
+- name: Enable and start Docker
+  systemd:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Disable swap
+  command: swapoff -a
+
+- name: Check swap off
+  command: grep '^#.*swap' /etc/fstab
+  register: swapnotoff
+  ignore_errors: yes
+
+- name: Check if minikube program exists
+  command: ls /usr/local/bin/minikube
+  register: minikube_installed
+  ignore_errors: yes
+
+# The line might not exist, so skip error
+- name: Permanently dsiable swapp
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+    replace: '# \1'
+  when: swapnotoff.rc > 1
+  ignore_errors: yes
+
+# - name: Set bridge-nf-call-iptables
+#   sysctl:
+#     name: bridge-nf-call-iptables
+#     value: 1
+#     state: present
+#     sysctl_set: yes
+#     reload: yes
+
+- name: Install kubectl
+  uri:
+    url: https://storage.googleapis.com/kubernetes-release/release/stable.txt
+    return_content: yes
+  register: kubectlversion
+
+- name: Set kubectl version
+  set_fact:
+    kubectlv: "{{ kubectlversion.content | regex_replace('\\n','') }}"
+
+- name: Kubeversion Debug
+  debug:
+    msg: "{{ kubectlv }}"
+
+- name: Get kubectl
+  get_url:
+    url: https://storage.googleapis.com/kubernetes-release/release/{{ kubectlv }}/bin/linux/amd64/kubectl
+    dest: /usr/local/bin/kubectl
+    mode: 0755
+    owner: root
+    group: root
+
+- name: Get minikube software
+  get_url:
+    url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+    dest: /usr/local/bin/minikube
+    mode: 0755
+    owner: root
+    group: root
+  when: minikube_installed.rc > 1
+
+- name: Launch minikube
+  command: /usr/local/bin/minikube --vm-driver=none start
+
+- name: Get Cockpit json
+  get_url:
+    url: https://raw.githubusercontent.com/cockpit-project/cockpit/master/containers/kubernetes-cockpit.json
+    dest: /tmp/cockpit.json
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Install cockpit
+  command: /usr/local/bin/kubectl create -f /tmp/cockpit.json
+  ignore_errors: yes
+
+- name: Add ec2-user to docker group
+  user:
+    name: ec2-user
+    groups: docker
+    append: yes
+
+- name: Copy the app deployment on to server
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  loop:
+    - { src: 'deployment/deployment.yaml', dest: '/home/ec2-user/deployment.yaml'}
+    - { src: 'deployment/service.yaml', dest: '/home/ec2-user/service.yaml'}

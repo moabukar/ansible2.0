@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [[ $1 == DEBUG ]]
+then
+	ansible-playbook -vvvv -i environments/prod create.yml
+else
+	ansible-playbook -i environments/prod create.yml
+fi

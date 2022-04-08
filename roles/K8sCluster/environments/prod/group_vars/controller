@@ -1,0 +1,5 @@
+# ansible_python_interpreter: /usr/bin/python3
+ansible_become_method: sudo
+ansible_connection: ssh
+ansible_become_user: root
+ansible_become: yes

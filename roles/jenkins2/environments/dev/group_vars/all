@@ -1,0 +1,19 @@
+region: eu-west-1
+vpc_id:
+  eu-west-1: vpc-3fa18d5a
+vpc_security_groups: sg-07acaaaecee819880
+env: development
+region: eu-west-1
+sshkey: steveshilling
+ami:
+  eu-west-1: ami-01f14919ba412de34
+ec2SG:
+  eu-west-1: AL-Shared
+ec2subnet:
+  eu-west-1: subnet-0208595b
+tagName: StevesJenkins
+ec2env: dev
+ansible_ssh_user: ec2-user
+ansible_ssh_common_args: -o StrictHostKeyChecking=no
+jenkins_version: 2.213
+# Check latest version at https://pkg.jenkins.io/redhat/

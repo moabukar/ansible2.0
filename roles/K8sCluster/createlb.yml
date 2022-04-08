@@ -1,0 +1,6 @@
+# Add LoadBalancer for DNS name resolution
+- hosts: kubemaster
+  become: no
+  gather_facts: True
+  roles:
+    - dnslb

@@ -1,0 +1,12 @@
+# Add LoadBalancer for DNS name resolution
+- hosts: kubemaster
+  become: no
+  gather_facts: True
+  roles:
+     - dnslb
+
+# Get K8s config file onto bastion
+- hosts: bastion
+  become: no
+  roles:
+    - kubeconfig

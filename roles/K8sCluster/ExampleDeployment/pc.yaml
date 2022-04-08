@@ -1,0 +1,30 @@
+# See https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petclinic
+  labels:
+    app: petclinic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: petclinic
+  template:
+    metadata:
+      labels:
+        app: petclinic
+    spec:
+      containers:
+      - name: petclinic
+        image: docker.io/steve353/petclinic:k8s
+        env:
+        - name: DBSERVERNAME
+          value: mysql
+        - name: DBUSERNAME
+          value: petclinic
+        - name: DBPASSWORD
+          value: petclinic
+        ports:
+        - containerPort: 8080

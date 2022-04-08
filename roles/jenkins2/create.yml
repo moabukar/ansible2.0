@@ -1,0 +1,15 @@
+- hosts: ec2
+  connection: local
+  gather_facts: false
+  roles:
+    - ec2
+
+- hosts: jenkins
+  become: True
+  gather_facts: True
+  roles:
+    - maven
+    - installpkgs
+    - ansible-role-jenkins
+    - configplugin
+    - jobs

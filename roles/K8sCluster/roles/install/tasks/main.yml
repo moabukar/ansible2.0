@@ -1,0 +1,33 @@
+- name: Logged in as
+  command: id
+
+- name: Ansible thinks I am
+  debug:
+    msg: "Ansible user: {{ansible_user}}"
+
+- name: Clone the Kubespray
+  git:
+    repo: https://github.com/kubernetes-sigs/kubespray.git
+    dest: /home/ec2-user/kubespray
+    update: no
+    version: v2.12.0
+
+- name: Copy the kubespray inventory sample folder
+  copy:
+    remote_src: yes
+    src: /home/ec2-user/kubespray/inventory/sample
+    dest: /home/ec2-user/kubespray/inventory/mycluster
+
+- name: Copy inventory to bastion
+  copy:
+    src: "{{ lookup('env', 'ANSIBLEENV')}}/kube.ini"
+    dest: "/home/ec2-user/kubespray/inventory/mycluster/inventory.ini"
+    owner: ec2-user
+    group: ec2-user
+    mode: '0644'
+
+# - name: Run the playbook
+#   become: no
+#   command: "ansible-playbook -i inventory/mycluster/inventory.ini --become --become-user=root cluster.yml"
+#   args:
+#     chdir: /home/ec2-user/kubespray

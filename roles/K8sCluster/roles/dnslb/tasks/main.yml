@@ -1,0 +1,104 @@
+- name: Create DNS LB in Cluster
+  command: /usr/local/bin/kubectl apply -f https://raw.githubusercontent.com/haproxytech/kubernetes-ingress/master/deploy/haproxy-ingress.yaml
+
+- name: Get LB 80 port
+  shell: /usr/local/bin/kubectl get svc --namespace=haproxy-controller | grep haproxy-ingress | awk '{print $5}' | awk -F, '{print $1}' | sed -e 's/^.*://' -e 's,/.*$,,'
+  register: lbhttp
+
+- name: Get LB healthcheck port
+  shell: /usr/local/bin/kubectl get svc --namespace=haproxy-controller | grep haproxy-ingress | awk '{print $5}' | awk -F, '{print $3}' | sed -e 's/^.*://' -e 's,/.*$,,'
+  register: lbcheck
+
+- name: Show ports
+  debug:
+    msg:
+      - "HTTP PORT: {{ lbhttp.stdout }}"
+      - "CHECK PORT: {{ lbcheck.stdout }}"
+      - "Region: {{ region }}"
+      - "Sec Group: {{ ec2SG[region] }}"
+      - "Subnet: {{ ec2subnet[region] }}"
+      - "VPC: {{ vpc_id[region] }}"
+
+- name: LB target group
+  delegate_to: localhost
+  become: no
+  elb_target_group:
+    name: "{{ mytags.Name }}-{{ ec2env }}-tg"
+    protocol: http
+    port: "{{ lbhttp.stdout | int }}"
+    vpc_id: "{{ vpc_id[region] }}"
+    region: "{{ region }}"
+    health_check_path: /
+    health_check_port: "{{ lbcheck.stdout | int }}"
+    successful_response_codes: "200,250-260"
+    target_type: ip
+    targets:
+      - Id: "{{hostvars[item].private_ip}}"
+    state: present
+    wait_timeout: 200
+    wait: False
+  with_items: "{{ groups['kubemaster'] }}"
+
+- name: Create ELB for Public app access
+  delegate_to: localhost
+  become: no
+  elb_application_lb:
+    name: "{{ mytags.Name }}-{{ ec2env }}-lb"
+    security_groups:
+      - "{{ ec2SG[region] }}"
+    subnets:
+      - "{{ ec2subnet[region] }}"
+      - "{{ lbsubnets[region] }}"
+    region: "{{ region }}"
+    listeners:
+      - Protocol: HTTP
+        Port: 80
+        DefaultActions:
+          - Type: forward
+            TargetGroupName: "{{ mytags.Name }}-{{ ec2env }}-tg"
+    state: present
+  register: lbdetail
+
+- name: Add LB to inventory
+  delegate_to: localhost
+  become: no
+  lineinfile:
+    dest: "{{ lookup('env','ANSIBLEENV') }}/hosts"
+    insertafter: EOF
+    line: "{{ item }}"
+  with_items:
+    - ""
+    - "[ELB]"
+    - "{{ lbdetail.dns_name }} lbport={{ lbhttp.stdout }}"
+  when: "'ELB' not in groups"
+
+- name: Refresh LB inventory
+  delegate_to: localhost
+  become: no
+  meta: refresh_inventory
+
+- name: Add DNS entry for applications
+  delegate_to: localhost
+  become: no
+  route53:
+    state: present
+    zone: "{{ dnszone }}"
+    record: "{{dnsname}}"
+    type: CNAME
+    ttl: 60
+    value:
+      - "{{ groups['ELB'][0] }}"
+    overwrite: yes
+
+- name: Add DNS entry for applications
+  delegate_to: localhost
+  become: no
+  route53:
+    state: present
+    zone: "{{ dnszone }}"
+    record: "*.{{dnsname}}"
+    type: CNAME
+    ttl: 60
+    value:
+      - "{{dnsname}}"
+    overwrite: yes

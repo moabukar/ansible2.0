@@ -1,0 +1,11 @@
+- name: Install extra software
+  package:
+    name:
+      - git
+      - '@Development tools'
+      - python2-pip
+
+- name: Install Python jenkins module
+  pip:
+    name: ["python-jenkins","jenkins-job-builder","six","filelock","importlib-metadata","packaging","parse","pluggy","py","pyparsing","toml","tox","wheel","zipp"]
+    extra_args: --upgrade

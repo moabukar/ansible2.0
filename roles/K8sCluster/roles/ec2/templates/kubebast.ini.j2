@@ -1,0 +1,22 @@
+[all]
+node1 ansible_host={{ masterprivip }} ip={{ masterprivip }} etcd_member_name=etcd1
+node2 ansible_host={{ worker1privip }} ip={{ worker1privip }} etcd_member_name=etcd2
+node3 ansible_host={{ worker2privip }} ip={{ worker2privip }} etcd_member_name=etcd3
+
+[kube-master]
+node1
+
+[etcd]
+node1
+node2
+node3
+
+[kube-node]
+node2
+node3
+[calico-rr]
+
+[k8s-cluster:children]
+kube-master
+kube-node
+calico-rr

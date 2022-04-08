@@ -1,0 +1,10 @@
+- name: Install Maven
+  unarchive:
+    src: "{{ mavenurl }}"
+    dest: /opt
+    remote_src: yes
+
+- name: Set Maven in path
+  copy:
+    dest: /etc/profile.d/mvn.sh
+    content: export PATH=$PATH:"{{ mavendir }}"/bin

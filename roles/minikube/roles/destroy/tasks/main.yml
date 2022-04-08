@@ -1,0 +1,34 @@
+- name: Remove Kubernetes server
+  ec2:
+    state: absent
+    instance_ids: "{{ hostvars[groups['kube'][0]].instance_id }}"
+    region: "{{ region }}"
+
+- name: Remove Jenkins from inventory
+  lineinfile:
+    path: "{{ playbook_dir }}/environments/{{ ec2env }}/hosts"
+    regexp: "^{{ groups['kube'][0] }}"
+    state: absent
+
+- name: Remove wildcard DNS
+  route53:
+    state: absent
+    zone: grads.al-labs.co.uk
+    record: "*.kube.grads.al-labs.co.uk"
+    type: PTR
+    ttl: 60
+    value:
+      - kube.grads.al-labs.co.uk
+
+- name: Remove DNS entries
+  route53:
+    state: absent
+    zone: grads.al-labs.co.uk
+    record: kube.grads.al-labs.co.uk
+    type: A
+    ttl: 60
+    value:
+      - "{{ groups['kube'][0] }}"
+
+- debug:
+    msg: "Removing {{ groups['kube'][0] }} from inventory"

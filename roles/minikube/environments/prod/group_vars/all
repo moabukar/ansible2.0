@@ -1,0 +1,24 @@
+vpc_id:
+  eu-west-1: vpc-3fa18d5a
+vpc_security_groups:
+  eu-west-1: sg-0c2c9cd5b7d66207d
+ec2subnet:
+  eu-west-1: subnet-0208595b
+ec2SG: AL-Shared
+ami:
+  eu-west-1: ami-01f14919ba412de34
+  us-east-1: ami-017b0e29fac27906b
+env: production
+region: eu-west-1
+sshkey: steveshilling
+ec2env: prod
+ansible_ssh_common_args: -o StrictHostKeyChecking=no
+mytags:
+  Name: AL-Kubernetes
+  Environment: "{{ ec2env }}"
+  Owner: Steve Shilling
+  Project: ALAcademy2019
+  StartDate: 20191206
+  EndDate: 20200131
+ansible_ssh_private_key_file: "{{ lookup('env','HOME') }}/.aws/vmkey.pem"
+ansible_ssh_user: ec2-user

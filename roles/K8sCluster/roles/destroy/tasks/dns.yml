@@ -1,0 +1,28 @@
+# Check if name exists
+- name: Check master record
+  set_fact:
+    masterdns: "{{ lookup('dig','master.{{dnsname}}')}}"
+    controldn: "{{ lookup('dig','control.{{dnsname}}')}}"
+  ignore_errors: yes
+
+- name: Remove Master DNS entries
+  route53:
+    state: absent
+    zone: "{{ dnszone }}"
+    record: "master.{{dnsname}}"
+    type: A
+    ttl: 60
+    value:
+      - "{{ groups['kubemaster'][0] }}"
+  ignore_errors: yes
+
+- name: Remove Controller DNS entries
+  route53:
+    state: absent
+    zone: "{{ dnszone }}"
+    record: "control.{{dnsname}}"
+    type: A
+    ttl: 60
+    value:
+      - "{{ groups['controller'][0] }}"
+  ignore_errors: yes

@@ -1,0 +1,38 @@
+- name: Get /root/.kube/config to ec2-user
+  delegate_to: "{{item}}"
+  copy:
+    remote_src: yes
+    src: /root/.kube/config
+    dest: /tmp/k8sconfig
+    mode: '0644'
+  with_items: "{{ groups['kubemaster'] }}"
+
+- name: Create .kube directory
+  file:
+    path: /home/ec2-user/.kube
+    mode: '0700'
+    owner: ec2-user
+    group: ec2-user
+    state: directory
+
+- name: Copy config to controller
+  fetch:
+    src: /tmp/k8sconfig
+    dest: /tmp/k8sconfig
+  delegate_to: "{{item}}"
+  with_items: "{{ groups['kubemaster'] }}"
+
+- name: Copy config to bastion ec2-user
+  copy:
+    src: "/tmp/k8sconfig/{{item}}/tmp/k8sconfig"
+    dest: /home/ec2-user/.kube/config
+    owner: ec2-user
+    group: ec2-user
+    mode: '0600'
+  with_items: "{{ groups['bastion'] }}"
+
+- name: Clean up local files
+  file:
+    state: absent
+    path: /tmp/k8sconfig
+  delegate_to: 127.0.0.1

@@ -1,0 +1,24 @@
+- name: Get Instance ID
+  set_fact:
+    instance_id: "{{ hostvars[groups['jenkins'][0]].instance_id }}"
+
+- name: Instance ID
+  debug:
+    msg:
+      - "Instance ID: {{ instance_id }}"
+
+- name: Remove Jenkins server
+  ec2:
+    state: absent
+    instance_ids: '{{ instance_id }}'
+    region: '{{ region }}'
+
+- debug:
+    msg: "Removing {{ groups['jenkins'][0] }} from inventory"
+
+# This is done automatically
+- name: remove Jenkins server from inventory
+  lineinfile:
+     dest: "{{ playbook_dir }}/environments/{{ ec2env }}/hosts"
+     state: absent
+     regexp: "{{ groups['jenkins'][0] }}"

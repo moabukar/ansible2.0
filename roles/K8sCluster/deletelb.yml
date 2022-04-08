@@ -1,0 +1,7 @@
+# Create the Nodes
+- hosts: ec2
+  connection: local
+  gather_facts: false
+  become: no
+  roles:
+    - deletelb

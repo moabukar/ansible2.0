@@ -1,0 +1,19 @@
+# Create the Nodes
+- hosts: ec2
+  connection: local
+  gather_facts: false
+  roles:
+    - ec2
+
+# Install the cluster
+- hosts: controller
+  become: yes
+  gather_facts: True
+  roles:
+    - provision
+
+# Install K8s
+- hosts: bastion
+  become: no
+  roles:
+    - install

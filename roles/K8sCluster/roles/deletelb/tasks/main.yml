@@ -1,0 +1,74 @@
+- name: Destroy LB
+  elb_application_lb:
+    name: "{{ mytags.Name }}-{{ ec2env }}-lb"
+    region: "{{ region }}"
+    state: absent
+
+- name: Wait for ELB destruction as Ansible does not
+  pause:
+    minutes: 3
+
+- name: Destroy Target Group
+  elb_target_group:
+    name: "{{ mytags.Name }}-{{ ec2env }}-tg"
+    protocol: http
+    vpc_id: "{{ vpc_id[region] }}"
+    port: "{{hostvars[item].lbport}}"
+    state: absent
+    region: "{{ region }}"
+  with_items: "{{ groups['ELB'] }}"
+  when: "'ELB' in groups"
+
+- name: Get DNS records for Kubernetes
+  route53_info:
+    query: record_sets
+    type: CNAME
+    hosted_zone_id: "{{ dnszoneid }}"
+    region: "{{ region }}"
+    dns_name: "{{ dnsname }}"
+    start_record_name: "{{dnsname}}"
+    max_items: 1
+  register: dnsentries
+
+- name: DEBUG DNS
+  debug:
+    msg: "{{dnsentries}}"
+
+- name: Remove Wildcard DNS entries
+  route53:
+    state: absent
+    zone: "{{ dnszone }}"
+    record: "*.{{dnsname}}"
+    value: "{{dnsname}}"
+    type: CNAME
+    ttl: 60
+  with_items: "{{dnsentries}}"
+  ignore_errors: yes
+
+- name: Remove LB DNS entries
+  route53:
+    state: absent
+    zone: "{{ dnszone }}"
+    record: "{{dnsname}}"
+    value: "{{dnsentries.ResourceRecordSets[0].ResourceRecords[0].Value}}"
+    type: CNAME
+    ttl: 60
+  ignore_errors: yes
+
+- name: Remove ELB from inventory
+  lineinfile:
+    path: "{{ lookup('env','ANSIBLEENV') }}/hosts"
+    regexp: "^{{item}}"
+    state: absent
+  with_items: "{{ groups['ELB'] }}"
+  when: "'ELB' in groups"
+
+- name: Remove ELB Group from inventory
+  lineinfile:
+    path: "{{ lookup('env','ANSIBLEENV') }}/hosts"
+    regexp: "^\\[ELB\\]"
+    state: absent
+  ignore_errors: true
+
+- name: Refresh ELB inventory
+  meta: refresh_inventory

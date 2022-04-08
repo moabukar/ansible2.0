@@ -1,0 +1,32 @@
+ansible_connection: ssh
+ansible_become_user: root
+ansible_become: yes
+ansible_become_method: sudo
+adminpw: secret
+mvnversion: 3.6.3
+java_packages:
+  - java-1.8.0-openjdk
+  - java-1.8.0-openjdk-devel
+mavenurl: http://apache.mirrors.nublue.co.uk/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz
+mavendir: /opt/apache-maven-3.6.3
+jenkins_package_state: present
+jenkins_admin_username: admin
+jenkins_admin_password: secret
+jenkins_plugins_install_dependencies: true
+jenkins_plugins_state: present
+jenkins_plugins:
+  - build-timeout
+  - credentials-bindings
+  - ws-cleanup
+  - ant
+  - gradle
+  - github-branch-source
+  - git
+  - subversion
+  - ssh-slaves
+  - matrix-auth
+  - pam-auth
+  - ldap
+  - email-ext
+  - mailer
+  - maven-plugin

@@ -1,0 +1,12 @@
+vpc_id:
+  eu-west-1: vpc-3fa18d5a
+vpc_security_groups: sg-07acaaaecee819880
+env: production
+region: eu-west-2
+sshkey: steveshilling
+ec2SG: WorldSSH
+tagName: StevesJenkins
+ec2subnet: subnet-b6bfa5ce
+ec2env: prod
+ansible_ssh_common_args: -o StrictHostKeyChecking=no
+jenkins_version: 2.213

@@ -1,0 +1,29 @@
+- name: Create j2configs directory
+  file:
+    path: /var/lib/jenkins/j2configs
+    owner: root
+    group: root
+    mode: '0755'
+    state: directory
+
+- name: Add Maven 3.6.3 to Jenkins Config
+  template:
+    src: templates/mvn.groovy.j2
+    dest: /var/lib/jenkins/j2configs/mvn.groovy
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Add Script to Jenkins
+  template:
+    src: templates/confplugin.sh.j2
+    dest: /var/lib/jenkins/j2configs/confplugin.sh
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Install Maven 3.6.3
+  shell: "./confplugin.sh {{ item | basename | regex_replace('.j2$','') }}"
+  args:
+    chdir: /var/lib/jenkins/j2configs
+  with_fileglob: "templates/*.j2"

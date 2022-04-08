@@ -1,0 +1,4 @@
+# ansible_python_interpreter: /usr/bin/python3
+ansible_connection: ssh
+ansible_user: ec2-user
+remote_user: ec2-user
