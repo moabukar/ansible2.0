@@ -1,0 +1,66 @@
+- 
+- name: EC2 Creation
+  hosts: localhost
+  connection: local
+  gather_facts: False
+
+  vars:
+    # Get SSH Key we created to SSH into machine
+    key_name: my_aws
+    region: eu-west-1
+    image: ami-04364f406bd3c73f0 # Amazon AMI ID on AWS web console
+    id: ""
+    sec_group: "sg-038902ce188872bea"
+    subnet_id: "subnet-0dbad8fe0f06d4a02"
+
+
+  tasks:
+
+    - name: Facts
+      block:
+
+      - name: Get instances facts
+        ec2_instance_facts:
+          aws_access_key: "{{ec2_access_key}}"
+          aws_secret_key: "{{ec2_secret_key}}"
+          region: "{{ region }}"
+        register: result
+
+      #- name: Instances ID
+      #  debug:
+      #    msg: "ID: {{ item.instance_id }} - State: {{ item.state.name }} - public DNS: {{ item.public_dns_name }}"
+      #  loop: "{{ result.instances }}"
+
+      tags: always
+
+
+    - name: Provisioning EC2 instances
+      block:
+
+      - name: Upload public key to AWS
+        ec2_key:
+          name: "{{ key_name }}"
+          key_material: "{{ lookup('file', '/home/vagrant/.ssh/{{ key_name }}.pub') }}"
+          region: "{{ region }}"
+          aws_access_key: "{{ec2_access_key}}"
+          aws_secret_key: "{{ec2_secret_key}}"
+
+      - name: Provision instance(s)
+        ec2:
+          aws_access_key: "{{ec2_access_key}}"
+          aws_secret_key: "{{ec2_secret_key}}"
+          assign_public_ip: true
+          key_name: "{{ key_name }}"
+          id: "{{ id }}"
+          group_id: "{{ sec_group }}"
+          vpc_subnet_id: "{{ subnet_id }}"
+          image: "{{ image }}"
+          instance_type: t2.micro
+          region: "{{ region }}"
+          wait: true
+          count: 1
+          count_tag:
+            instance_tags:
+              Name: "{{ id }}"
+
+      tags: ['never', 'create_ec2']

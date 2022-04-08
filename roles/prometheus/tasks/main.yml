@@ -1,0 +1,76 @@
+---
+# tasks file for ansible-role-prometheus
+- name: add /opt/app/prometheus directory for prometheus
+  file:
+    state: directory
+    path: /opt/app/prometheus
+
+- name: Check for /opt/app/prometheus/.ansible
+  stat:
+    path: /opt/app/prometheus/.ansible
+  register: archive_file
+
+- name: extract prometheus archives into /opt/app/
+  unarchive:
+    src: "{{ item }}"
+    dest: /opt/app/prometheus
+    extra_opts: [--strip-components=1]
+  with_items:
+    - prometheus-2.28.1.linux-amd64.tar.gz
+  when: not archive_file.stat.exists
+
+- name: create /opt/app/prometheus/.ansible
+  file:
+    path: /opt/app/prometheus/.ansible
+    state: touch
+    owner: root
+    group: sys
+    mode: 0555
+  when: not archive_file.stat.exists
+
+- name: add prometheus group
+  group:
+    name: prometheus
+    gid: 3434
+
+- name: add prometheus user
+  user:
+    name: prometheus
+    comment: "Prometheus User"
+    uid: 3434
+    group: prometheus
+    home: /opt/app/prometheus
+    system: yes
+
+- name: add prometheus.service systemd file
+  ansible.builtin.copy:
+    src: prometheus.service
+    dest: /etc/systemd/system/prometheus.service
+    owner: root
+    group: root
+    mode: 0644
+  
+- name: add /opt/app/prometheus/data directory
+  file:
+    state: directory
+    path: /opt/app/prometheus/data
+    owner: prometheus
+    group: prometheus
+    mode: 0755
+
+- name: create prometheus.yml from template
+  template:
+    src: prometheus.yml.j2
+    dest: "/opt/app/prometheus/prometheus.yml"
+    mode: 0644
+    owner: prometheus
+    group: prometheus
+  notify:
+  - restart prometheus
+
+- name: Restart service prometheus.service, also issue daemon-reload to pick up config changes
+  systemd:
+    state: started
+    enabled: yes
+    daemon_reload: yes
+    name: prometheus.service

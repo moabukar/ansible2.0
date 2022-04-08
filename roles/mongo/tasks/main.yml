@@ -1,0 +1,47 @@
+-
+- name: Install mongo 
+  hosts: db
+
+  gather_facts: yes
+
+  become: yes
+
+  tasks:
+  - name: Update Server
+    command: apt update -y
+
+  - name: Copy database folder
+    synchronize:
+      src: /home/vagrant/db
+      dest: /home/vagrant
+
+  - name: Get Mongo key
+    shell: apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv D68FA50FEA312927
+
+  - name: Get particular Mongo Repository and sourceslist reference
+    shell: echo "deb https://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.2 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.2.list
+
+  - name: Update Server
+    command: apt update -y
+
+  - name: Upgrade Server
+    command: apt upgrade -y
+
+  - name: Install Mongodb (3.2.20) - Errors sometimes can happen.
+    shell: apt install -y mongodb-org=3.2.20 mongodb-org-server=3.2.20 mongodb-org-shell=3.2.20 mongodb-org-mongos=3.2.20 mongodb-org-tools=3.2.20
+    ignore_errors: yes
+
+  - name: remove config file
+    shell: rm /etc/mongod.conf
+
+  - name: link config file
+    shell: ln -s /home/vagrant/db/mongod.conf /etc/mongod.conf
+
+  - name: restart mongod
+    service: name=mongod state=restarted
+
+  - name: enable mongod
+    service: name=mongod state=started enabled=yes
+
+  - name: If this passes, the MongoDB service is running
+    command: systemctl status mongod

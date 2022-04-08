@@ -1,0 +1,46 @@
+-
+- name: Elk deployment on ec2 instance
+  gather_facts: true
+  hosts: all
+  tasks:
+    - name: Install docker-compose and git
+      become: yes   
+      script: ./docker-setup.sh
+      register: bash
+    
+    - debug: var=bash
+    # rm -r Elk-stack
+
+    - name: Clone git repo
+      become: yes   
+      shell: |
+        rm -r Elk-stack
+        git clone https://github.com/moabukar/...
+      ignore_errors: yes
+
+    - name: Logstash image
+      shell: |
+        cd Elk-stack
+        cd Elk-stack
+        cd logstash-config
+        docker build . -t logstash
+
+    - name: Elk deployment
+      become: yes
+      become_user: ec2-user
+      shell: |
+        cd Elk-stack
+        cd Elk-stack
+        docker-compose up
+    - name: Make sure compose service is up
+      community.general.docker_compose:
+        project_src: /home/ec2-user/Elk-stack/Elk-stack
+        files:
+            - "docker-compose.yml"
+        state: present
+    - name: Run container
+      become: True
+      shell:
+          cmd: "docker-compose up -d "
+          chdir: /home/ec2-user/Elk-stack/Elk-stack
+

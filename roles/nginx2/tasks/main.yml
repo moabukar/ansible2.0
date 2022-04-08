@@ -1,0 +1,131 @@
+-
+- name: Install nginx
+  hosts: web
+
+  gather_facts: yes
+
+  become: true
+
+  tasks:
+  - name: Update Server
+    command: apt update -y
+
+  - name: Remove Pm2 Process if it is running still
+    command: pm2 kill
+    ignore_errors: True
+    become: yes
+
+  - name: Update Server
+    command: apt update -y
+
+  - name: Upgrade Server
+    command: apt upgrade -y
+
+  - name: Copy web app folder
+    synchronize:
+      src: /home/vagrant/app
+      dest: /home/vagrant
+
+  - name: Install Nginx
+    apt: pkg=nginx state=present
+
+  - name: Remove Nginx default file
+    file:
+      path: /etc/nginx/sites-enabled/default
+      state: absent
+
+  - name: Copy file into new location
+    copy:
+      src: /home/vagrant/environment/nodeapp.conf
+      dest: /etc/nginx/sites-enabled/default
+      mode: '666'
+
+  - name: Create Link
+    file:
+      src: /etc/nginx/sites-enabled/default
+      dest: /etc/nginx/sites-available/default
+      state: link
+      force: true
+
+  - name: Install nodejs dependencies
+    command: apt-get install software-properties-common -y
+    ignore_errors: True
+
+  - name: download nodejs dependencies
+    shell: curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+    ignore_errors: True
+
+  - name: Install nodejs
+    apt: pkg=nodejs state=present
+
+#  - name: export db host variable for database
+#    shell: echo 'export DB_HOST="mongodb://vagrant@192.168.33.11:27017/posts?authSource=admin' >> ~/.bashrc
+
+  - name: Install NPM
+    shell: npm i
+    args:
+      chdir: app/
+
+  - name: install PM2
+    npm:
+      name: pm2
+      global: yes
+
+  - name: Update Server
+    command: apt update -y
+
+  - name: Upgrade Server
+    command: apt upgrade -y
+
+# - name: remove old default file
+#   shell: rm /etc/nginx/sites-available/default
+
+  - name: Copy file into new location
+    copy:
+      src: /home/vagrant/environment/nodeapp.conf
+      dest: /etc/nginx/sites-available/default
+      mode: '666'
+
+  - name: run -t on nginx
+    shell: nginx -t
+
+  - name: restart nginx
+    service:
+      name: nginx
+      state: restarted
+
+  - name: install needed npm dependencies
+    shell: npm install
+    args:
+      chdir: app/
+
+  - name: seed database posts from seed.js
+    shell: node seeds/seed.js
+    args:
+      chdir: app/
+
+  - name: Start the app with pm2
+    shell: node seeds/seed.js
+    args:
+      chdir: app/
+
+  - name: Start the app with process manager pm2
+    shell: pm2 start app.js
+    args:
+      chdir: app/
+
+#  - name: set up app
+#    shell: |
+#      cd app/
+#      npm install
+#      node seeds/seed.js
+#      pm2 start app.js
+#    environment:
+#      DB_HOST: mongodb://vagrant@192.168.33.11:27017/posts?authSource=admin
+#    become_user: root
+
+
+#  - name: Run App with pm2
+#    command: pm2 start app.js
+#    args:
+#      chdir: /home/vagrant/app/
