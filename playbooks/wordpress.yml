@@ -1,0 +1,8 @@
+- 
+- hosts: wordpress
+  become: yes
+  roles:
+    - server
+    - php
+    - mysql
+    - wordpress
