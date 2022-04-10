@@ -1,0 +1,16 @@
+- name: create a cloudformation stack
+  cloudformation:
+    stack_name: "{{ StackName }}"
+    state: "present"
+    region: "{{ aws_region }}"
+    disable_rollback: true
+    template: "files/cloudformation.yml"
+    template_parameters:
+      EnvironmentName: "{{ EnvironmentName }}"
+      ImageId: "{{ ImageId }}"
+      InstanceType: "{{ InstanceType }}"
+      PrivateSubnet1CIDR: "{{ PrivateSubnet1CIDR }}"
+      PublicSubnet1CIDR: "{{ PublicSubnet1CIDR }}"
+      VpcCIDR: "{{ VpcCIDR }}"
+    tags:
+      Stack: "ansible-cloudformation"
